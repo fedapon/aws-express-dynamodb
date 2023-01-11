@@ -1,0 +1,57 @@
+service: aws-express-dynamodb
+frameworkVersion: "3"
+
+custom:
+    tableName: "users-table-${sls:stage}"
+    dynamodb:
+        stages:
+            - dev
+        start:
+            migrate: true
+
+plugins:
+    - serverless-offline
+    - serverless-dynamodb-local
+
+provider:
+    name: aws
+    profile: default
+    stage: ${opt:stage, 'dev'}
+    region: us-east-2
+    runtime: nodejs16.x
+    memorySize: 256
+    deploymentMethod: direct
+    iam:
+        role:
+            statements:
+                - Effect: Allow
+                  Action:
+                      - dynamodb:*
+                  Resource:
+                      - Fn::GetAtt: [UsersTable, Arn]
+    environment:
+        USERS_TABLE: ${self:custom.tableName}
+
+functions:
+    api:
+        handler: handler.handler
+        events:
+            - httpApi: "*"
+
+resources:
+    Resources:
+        UsersTable:
+            Type: AWS::DynamoDB::Table
+            Properties:
+                AttributeDefinitions:
+                    - AttributeName: userId
+                      AttributeType: S
+                KeySchema:
+                    - AttributeName: userId
+                      KeyType: HASH
+                BillingMode: PAY_PER_REQUEST
+                TableName: ${self:custom.tableName}
+
+package:
+    patterns:
+        - "!.dynamodb/**"
